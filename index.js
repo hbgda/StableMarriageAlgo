@@ -100,7 +100,7 @@ const Females = {}
 async function start() {
 
     // Get required couples
-    const couplesAmount = 10000 // prompt("How many couples would you like to make? > ")
+    const couplesAmount = prompt("How many couples would you like to make? > ")
 
     // Load names
     const csv = await danfo.readCSV("./names.csv")
