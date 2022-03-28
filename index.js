@@ -2,38 +2,72 @@ const danfo = require("danfojs-node")
 const prompt = require("prompt-sync")()
 
 class Person {
-    
-    married = undefined
-    preferences = []
+    spouse = undefined
+    preferences = {}
+    possible = []
     name = ""
-    
+    topPreference = ""
+
     constructor(name, possible) {
         this.name = name
-        this.preferences = [...possible].sort(a => .5 - Math.random())
-        this.married = undefined
+
+        // Pseudo-randomise array as a way of generating preferences
+        possible = possible.sort(a => .5 - Math.random())
+        this.topPreference = possible[0]
+        for(let i = 0; i < possible.length; i++) {
+            this.preferences[possible[i]] = i
+        }
+
+        this.possible = possible
+    }
+}
+
+class Male extends Person {
+    constructor(name, possible) {
+        super(name, possible)
     }
 
+    // Attempt to marry the given name
+    // Will fail if the name ranks lower in the persons preferences than the currently married person
     marry(name) {
-        const prefIdx = this.preferences.indexOf(name)
-        if (prefIdx < this.preferences.indexOf(this.married) || this.married == undefined) {
-            if(this.married) people[this.married].married = undefined
-            this.married = name
+        const marriedRank = this.preferences[this.spouse]
+        const prefIdx = this.preferences[name]
+        if (prefIdx < marriedRank || this.spouse == undefined) {
+            if(this.spouse) Females[this.spouse].spouse = undefined
+            this.spouse = name
             return true
         }
         return false
     }
+}
 
+class Female extends Person {
+    constructor(name, possible) {
+        super(name, possible)
+    }
+
+    // Attempt to marry all people in preferences
+    // Will end after successfully marrying someone
     proposeAll() {
-        for(const pref of this.preferences) {
-            if (people[pref].marry(this.name)) {
-                console.log(`${this.name} married ${pref}`)
-                this.married = pref
+
+        for(const m_key of Object.keys(this.preferences)) {
+            const m_pref = this.preferences[m_key]
+            console.log(`\n${this.name} preference of ${m_key} is ${m_pref}`)
+            console.log(`${m_key} preference of ${this.name} is ${Males[m_key].preferences[this.name]}`)
+            if(Males[m_key].marry(this.name)) {
+                console.log(`${this.name} married ${m_key}\n`)
+                this.spouse = m_key
                 break
+            }
+            else {
+                // Remove male from preference list to reduce iterations in further stages
+                delete this.preferences[m_key]
             }
         }
     }
 }
 
+// Default list of womens names for testing
 const women_def = [
     "Lisa",     // 1
     "Chloe",    // 2
@@ -43,6 +77,8 @@ const women_def = [
     "Dianna",   // 6
     "Elizabeth" // 7
 ]
+
+// Default list of mens names for testing
 const men_def = [
     "Bob",     // 1
     "Steven",  // 2
@@ -53,67 +89,92 @@ const men_def = [
     "Jack",   // 7
 ]
 
-let men = [
+let male_names = []
+let female_names = []
 
-]
-let women = [
-
-]
-
-const people = {}
-
-function setupPeople() {
-    for(const m of men) {
-        people[m] = new Person(m, women)
-    }
-    for(const w of women) {
-        people[w] = new Person(w, men)
-    }
-}
+// Dictionary of <string, Male> key-value pairs
+const Males = {}
+// Dictionary of <string, Female> key-value pairs
+const Females = {}
 
 async function start() {
-    const couplesAmount = prompt("How many couples would you like to make? > ")
+
+    // Get required couples
+    const couplesAmount = 10000 // prompt("How many couples would you like to make? > ")
+
+    // Load names
     const csv = await danfo.readCSV("./names.csv")
-    csv.column("name").dropDuplicates()
 
-    women = csv.values.filter(val => val[3] == "girl").map(w => w[1])
-    men = csv.values.filter(val => val[3] == "boy").map(m => m[1])
-    women.length = Math.min(csv.values.length, couplesAmount)
-    men.length = Math.min(csv.values.length, couplesAmount)
+    console.log(`${csv.values.length} total names.`)
+
+    // Create arrays of womens/mens names by filtering name values
+    female_names = csv.values.filter(val => val[3] == "girl").map(w => w[1])
+    male_names = csv.values.filter(val => val[3] == "boy").map(m => m[1])
+
+    // Remove duplicates
+    female_names = [...new Set(female_names)]
+    male_names = [...new Set(male_names)]
+
+    const len = Math.min(couplesAmount, female_names.length, male_names.length)
+
+    // Set array length to the minimum of csv.values.length or couplesAmount
+    female_names = female_names.slice(0, len)
+    male_names = male_names.slice(0, len)
+
+    console.log(`Men ${male_names.length} | Women ${female_names.length}`)
+
+    // Create Person instances for each name
+    for(const m of male_names) {
+        Males[m] = new Male(m, female_names)
+        console.log("Created male object for " + m)
+    }
+    for(const w of female_names) {
+        Females[w] = new Female(w, male_names)
+        console.log("Created female object for " + w)
+    }
 
 
-    //console.log(men)
-    //console.log(women)
-
-    setupPeople()
+    // Main algorithm loop
     let matching = true
     while (matching) {
-        const peopleAvailable = women.filter(w => people[w].married == undefined)
 
+        // Get all currently unmarried women by checking whether their married property is set to undefined
+        const peopleAvailable = female_names.filter(w => Females[w].spouse == undefined)
+        console.log(`There are ${peopleAvailable.length} unmarried women left.`)
+
+        // End loop if there are no unmarried women
         if(peopleAvailable.length <= 0) matching = false
 
+        // Iterate over each unmarried woman and try to propose to each preference
         for(const p of peopleAvailable) {
-            people[p].proposeAll()
+            console.log(`Proposing to all preferences of ${p}`)
+            Females[p].proposeAll()
         }
     }
-    for(const w of women) {
-        console.log(`Name: ${w}\nMatched: ${people[w].married}\n
-        `)
-        // Prefs: ${people[w].preferences.join(", ")}
-        for(const w1 of women) {
-            if (w1 != w && people[w1].married == people[w].married){
-                console.log(`W: ${w} ${people[w].married}   W1: ${w1} ${people[w1].married}`)
+
+    console.log("Finished running algorithm.")
+
+    // End of algo output
+    for(const w of female_names) {
+        const wObj = Females[w]
+        console.log(`\nName: ${w}\nMarried: ${wObj.spouse}`)
+
+        // Checks for duplicate married values
+        for(const w1 of female_names) {
+            if (w1 != w && Females[w1].spouse == Females[w].spouse){
+                console.log(`W: ${w} ${Females[w].spouse}   W1: ${w1} ${Females[w1].spouse}`)
                 console.log("Something has gone wrong!")
-                break
+                return
             }
         }
-        if(people[w].married != people[w].preferences[0] && people[people[w].preferences[0]].preferences[0] == w) {
+
+        // Checks for unstable marriages 
+        const f_top = wObj.topPreference
+        if(wObj.topPreference != wObj.spouse && Males[f_top].topPreference == w) {
             console.log("How has this happened?")
+            console.log(wObj.preferences[wObj.spouse], Males[f_top].preferences[wObj.name])
             break
         }
-        //console.log(`
-        //W: ${w} matched with M: ${people[w].married}, M pref was ${people[people[w].married].preferences[0]}, M prefs pref was ${people[people[people[w].married].preferences[0]]}
-        //`)
     }
 
 }
