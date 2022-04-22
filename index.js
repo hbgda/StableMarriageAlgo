@@ -18,7 +18,7 @@ class Person {
             this.preferences[possible[i]] = i
         }
 
-        this.possible = possible
+        this.possible = [...possible]
     }
 }
 
@@ -62,6 +62,7 @@ class Female extends Person {
             else {
                 // Remove male from preference list to reduce iterations in further stages
                 delete this.preferences[m_key]
+                this.possible.splice(m_pref, 1)
             }
         }
     }
@@ -157,7 +158,7 @@ async function start() {
     // End of algo output
     for(const w of female_names) {
         const wObj = Females[w]
-        console.log(`\nName: ${w}\nMarried: ${wObj.spouse}`)
+        console.log(`\nName: ${w}\nMarried: ${wObj.spouse}\nTop: ${wObj.topPreference}`)
 
         // Checks for duplicate married values
         for(const w1 of female_names) {
