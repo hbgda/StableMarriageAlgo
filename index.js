@@ -50,7 +50,7 @@ class Female extends Person {
     // Will end after successfully marrying someone
     proposeAll() {
 
-        for(const m_key of Object.keys(this.preferences)) {
+        for(const m_key of this.possible) {
             const m_pref = this.preferences[m_key]
             console.log(`\n${this.name} preference of ${m_key} is ${m_pref}`)
             console.log(`${m_key} preference of ${this.name} is ${Males[m_key].preferences[this.name]}`)
